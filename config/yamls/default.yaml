@@ -1,0 +1,62 @@
+cyclegan-cfg:
+  checkpoints-dir: checkpoints
+  epoch: latest
+  gpu-ids:
+  - 0
+  init-gain: 0.02
+  init-type: normal
+  input-nc: 3
+  is-train: false
+  load-iter: 0
+  model: test
+  model-suffix: ''
+  name: cyclegan
+  net-g: resnet_9blocks
+  ngf: 64
+  no-dropout: true
+  norm: instance
+  output-nc: 3
+  preprocess: resize_and_crop
+  verbose: true
+device: cuda:0
+nerf-cfg:
+  alpha-threshold-after-warmingup: 0.01
+  canonical-grid-size-fine:
+  - 160
+  - 160
+  - 160
+  cone-angle: 0.0
+  data-dir: nerf/nerf_synthetic
+  data-root-dir: ''
+  density-grid-dim: 1
+  device: cuda:0
+  evaluate-every-n-steps: 5000
+  k0-grid-dim: 12
+  learning-rate: 0.001
+  lr-grid-density: 0.1
+  lr-grid-k0: 0.1
+  lr-particle-net: 0.001
+  lr-particle-signature: 0.1
+  lr-rgb-net: 0.001
+  max-iter-steps: 30000
+  name: default
+  nerf: DVGO
+  occupancy-grid-resolution: 128
+  render-n-samples: 1024
+  render-step-size: 0.0
+  rgb-net-hidden-dim: 128
+  scene-aabb:
+  - -1.5
+  - -1.5
+  - -1.5
+  - 1.5
+  - 1.5
+  - 1.5
+  scene-contraction-type: 0
+  seed: 42
+  target-sample-batch-size: 65536
+  time-encoder-degrees: 3
+  view-encoder-degrees: 4
+  warmingup-steps: 1000
+  xyz-encoder-degrees: 5
+seed: 42

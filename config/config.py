@@ -1,17 +1,130 @@
 from dataclass_wizard import YAMLWizard
 from dataclasses import dataclass, field
+import os
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from models.nerfacc import ContractionType
+import torch
+import math
+import dotenv
 
 @dataclass
 class CycleGANConfig(YAMLWizard):
     model:str="test"
     is_train:bool=False
-    gpu_ids:tuple=(0,)
+    gpu_ids:list=field(default_factory=lambda:[0,]) # cycle gan need iterable
+    checkpoints_dir:str="checkpoints"
+    name:str="cyclegan"
+    preprocess:str="resize_and_crop"
+    model_suffix:str=""
+    input_nc:int=3
+    output_nc:int=3
+    ngf:int=64
+    netG:str="resnet_9blocks"
+    norm:str="instance"
+    no_dropout:bool=True
+    init_type:str="normal"
+    init_gain:float=0.02
+    load_iter:int=0
+    epoch:str="latest"
+    verbose:bool=True
+
+@dataclass
+class NerfConfig(YAMLWizard):
+    name:str = "default"
+    device:str = "cuda:0"
+
+    # scene config
+    scene_contraction_type:ContractionType=ContractionType.AABB
+    scene_aabb:list=\
+        field(default_factory=lambda:[-1.5, -1.5, -1.5, 1.5, 1.5, 1.5])
+
+    # render
+    render_n_samples:int=1024 # probably max samples per ray
+    render_step_size:float=0.
+    cone_angle:float=0.
+
+    # nerf model
+    nerf:str="DVGO"
+    canonical_grid_size_fine:list=\
+        field(default_factory=lambda:[160, 160, 160])
+    density_grid_dim:int=1
+    k0_grid_dim:int=12
+    xyz_encoder_degrees:int=5 # x, y, z -> 3 * [sin(5 x scales) + cos(...)]
+    view_encoder_degrees:int=4 
+    time_encoder_degrees:int=3
+    rgb_net_hidden_dim:int=128
+    # nerf-occupancy
+    occupancy_grid_resolution:int=128
+    alpha_threshold_after_warmingup:float=0.01
+    warmingup_steps:int=1000
+    
+    # optimisation
+    learning_rate: float=0.001
+    max_iter_steps:int=30000
+    evaluate_every_n_steps:int=5000
+
+    lr_grid_density:float=1e-1
+    lr_grid_k0:float=1e-1
+    lr_rgb_net:float=1e-3
+    lr_particle_signature:float=1e-1
+    lr_particle_net:float=1e-3
+
+    target_sample_batch_size:int=1<<16
+
+    # misc
+    seed:int = 42
+
+
+    # data
+    data_root_dir:str=""
+    data_dir:str="nerf/nerf_synthetic"
+
+    def convert_parameters(self):
+        # Some parameters are set at runtime, does not support yaml 
+        # serialisation or should not (e.g. datadir). 
+        # Convert them to tensor before using.
+        self.scene_aabb = torch.tensor(self.scene_aabb, 
+            dtype=torch.float32, device=self.device)
+        # aabb-box edges take max * sqrt(3) to set up ray tracing step
+        max_edge_len = (self.scene_aabb[3:] - self.scene_aabb[:3])\
+            .max().item()
+        self.render_step_size = \
+            max_edge_len * math.sqrt(3) / self.render_n_samples 
+
+        if self.data_root_dir == "":
+            dotenv.load_dotenv()
+            self.data_root_dir = os.environ["DATADIR"]
+        
+        if not self.data_dir.startswith('/'):
+            self.data_dir = os.path.join(self.data_root_dir, self.data_dir)
+
+        return self
+
     
 @dataclass
 class Config(YAMLWizard):
-    cyclegan_cfg:CycleGANConfig=field(default_factory=lambda:CycleGANConfig())
-    
+    device:str="cuda:0"
+    seed:int=42
+    cyclegan_cfg:CycleGANConfig=None
+    nerf_cfg:NerfConfig=None
 
+    def __post_init__(self):
+        if self.cyclegan_cfg is None:
+            self.cyclegan_cfg = CycleGANConfig()
+        if self.nerf_cfg is None:
+            self.nerf_cfg = NerfConfig(
+                device=self.device,
+                seed=self.seed)
+
+    def convert_parameters(self):
+        self.nerf_cfg = self.nerf_cfg.convert_parameters()
+        return self
+    
+if __name__ == "__main__":
+    cfg = Config()
+    d = os.path.dirname(__file__)
+    cfg.to_yaml_file(f"{d}/yamls/default.yaml")
 
 # 
 # class BaseOptions():

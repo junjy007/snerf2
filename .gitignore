@@ -3,3 +3,4 @@ checkpoints/*
 !checkpoints/cyclegan/test_opt.txt
 __pycache__
 *.pyc
+.env
